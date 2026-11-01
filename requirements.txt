@@ -1,0 +1,15 @@
+fastapi
+uvicorn[standard]
+python-multipart
+strawberry-graphql[fastapi]
+authlib
+itsdangerous
+httpx
+psycopg[binary]
+minio
+pillow
+torch
+torchvision
+transformers
+requests
+pytest

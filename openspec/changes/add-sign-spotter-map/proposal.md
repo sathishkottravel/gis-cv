@@ -7,11 +7,11 @@ This is a small learning project that brings computer vision, a GIS database, RE
 ## What Changes
 
 - New greenfield app "Sign Spotter Map" (the repo currently holds only OpenSpec scaffolding). It is built in this order: Docker services, sample images, the REST upload API, Swagger docs, GraphQL, then the frontend with GitHub login.
-- Docker Compose runs PostGIS and MinIO (S3-compatible object storage). The API runs locally with Python.
-- Sample images: a script downloads the public GTSRB (German Traffic Sign Recognition Benchmark) test set and registers about 20 sign photos (one per class) plus a manifest in a MinIO `samples` bucket. A seed script uploads them through the REST API at preset coordinates.
+- Docker Compose runs PostGIS and RustFS (S3-compatible object storage; official MinIO images are no longer published). The API runs locally with Python.
+- Sample images: a script downloads the public GTSRB (German Traffic Sign Recognition Benchmark) test set and registers about 20 sign photos (one per class) plus a manifest in a RustFS `samples` bucket. A seed script uploads them through the REST API at preset coordinates.
 - Traffic sign classification of an uploaded image using a pretrained GTSRB model. No training happens in this project.
 - Location capture: the app reads GPS coordinates from the photo's EXIF metadata, or falls back to coordinates in the request (a click on the map in the UI).
-- Each recognized sign is stored as a PostGIS `POINT` (SRID 4326) with its label, confidence, uploader and timestamp. The original image goes to MinIO and is exposed as `imageUrl`.
+- Each recognized sign is stored as a PostGIS `POINT` (SRID 4326) with its label, confidence, uploader and timestamp. The original image goes to RustFS and is exposed as `imageUrl`.
 - REST API: `POST /api/signs` (file upload), `GET /api/signs`, `GET /api/sign-types` and `GET /api/samples`, with interactive Swagger docs at `/docs`.
 - GraphQL API at `/graphql`, built on the same service layer: an `uploadSign` mutation and the `signs(bbox, classId)` and `signTypes` queries.
 - GitHub OAuth login. Uploads require a signed-in user (or a dev API key, used by scripts and Swagger). Viewing signs stays public.
@@ -33,6 +33,6 @@ Out of scope: user roles or permissions beyond "signed in", login providers othe
 ## Impact
 
 - New code: a Python backend (FastAPI with REST routes, Strawberry GraphQL and OAuth routes over a shared service layer), a static HTML/JS frontend, sample fetch and seed scripts, and `docker-compose.yml`.
-- New dependencies: PostgreSQL + PostGIS, MinIO + `minio/mc` (Docker images), `minio` (Python client), `torch`/`torchvision`/`transformers`, `Pillow`, `psycopg` (v3, plain SQL), `python-multipart` (REST uploads), `Authlib` + `itsdangerous` (GitHub OAuth and session cookie), Leaflet (CDN).
+- New dependencies: PostgreSQL + PostGIS, RustFS + `bitnamilegacy/minio-client` for bucket setup (Docker images), `minio` (generic S3 Python client), `torch`/`torchvision`/`transformers`, `Pillow`, `psycopg` (v3, plain SQL), `python-multipart` (REST uploads), `Authlib` + `itsdangerous` (GitHub OAuth and session cookie), Leaflet (CDN).
 - External setup: the developer creates a GitHub OAuth App (callback `http://localhost:8000/auth/callback`) and puts its client ID and secret in `.env`.
 - The model weights (Hugging Face) and the GTSRB test set (~90 MB) are downloaded on first use, which needs network access once.

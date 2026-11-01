@@ -1,0 +1,51 @@
+services:
+  db:
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-signs}
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-signs}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # S3-compatible object storage (official MinIO images are no longer published).
+  storage:
+    image: rustfs/rustfs:1.0.3
+    environment:
+      RUSTFS_ACCESS_KEY: ${STORAGE_ACCESS_KEY:-rustfsadmin}
+      RUSTFS_SECRET_KEY: ${STORAGE_SECRET_KEY:-change-me-storage}
+      RUSTFS_CONSOLE_ENABLE: "true"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - storagedata:/data
+
+  # One-shot: creates the buckets and makes them anonymously readable (not writable).
+  storage-init:
+    image: bitnamilegacy/minio-client:2025.7.21
+    depends_on:
+      - storage
+    environment:
+      STORAGE_ACCESS_KEY: ${STORAGE_ACCESS_KEY:-rustfsadmin}
+      STORAGE_SECRET_KEY: ${STORAGE_SECRET_KEY:-change-me-storage}
+    entrypoint: >
+      /bin/sh -c "
+      until mc alias set local http://storage:9000 $$STORAGE_ACCESS_KEY $$STORAGE_SECRET_KEY; do sleep 1; done &&
+      mc mb -p local/signs local/samples &&
+      mc anonymous set download local/signs &&
+      mc anonymous set download local/samples
+      "
+    restart: "no"
+
+volumes:
+  pgdata:
+  storagedata:
