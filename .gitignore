@@ -1,0 +1,21 @@
+# Claude Code local config and credentials
+.claude/
+.credentials.json
+CLAUDE.local.md
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Generated data
+samples/
+data/
+model.pt
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
