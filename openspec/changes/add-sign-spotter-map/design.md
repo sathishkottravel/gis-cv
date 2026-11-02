@@ -27,7 +27,10 @@ vision/
   db/init.sql               # signs table + GiST index (mounted into docker-entrypoint-initdb.d)
   app/
     main.py                 # FastAPI app: middleware, routers, /graphql, static at /
-    service.py              # create_sign / list_signs / list_samples + domain errors
+    service.py              # create_sign / list_signs / list_samples
+    errors.py               # domain errors (InvalidImage, LocationRequired, InvalidCoordinates, StorageUnavailable)
+    images.py               # upload validation: decodable JPEG/PNG, <= 10 MB
+    config.py               # settings from env / .env
     rest.py                 # /api/* routes (Pydantic models -> OpenAPI/Swagger)
     schema.py               # Strawberry types, Query, Mutation (call service.py)
     auth.py                 # GitHub OAuth routes (/auth/*), current_user(), require_uploader()
@@ -39,6 +42,7 @@ vision/
   scripts/
     fetch_samples.py        # GTSRB test set -> RustFS `samples` bucket (+ local samples/ copy)
     seed.py                 # samples from RustFS -> POST /api/signs with X-API-Key
+    check_classifier.py     # classify samples/ and compare with the manifest
   static/index.html         # Leaflet map + login bar + upload form, vanilla JS
   requirements.txt
   README.md
@@ -69,7 +73,7 @@ vision/
 Uploads are built in group 3 but auth arrives in group 6. To avoid rework, `rest.py` and `schema.py` call a `get_uploader` dependency from the start. Until group 6 it is a stub that returns `"api-key"`. Group 6 replaces the stub with `require_uploader` and adds the 401 tests. The seed script sends `X-API-Key` from day one, so it keeps working after the guard lands.
 
 ### Classifier: pretrained GTSRB model from Hugging Face
-`transformers` `pipeline("image-classification", model=...)`, loaded once at startup. The first candidate is `bazyl/gtsrb-model` (ViT, 43 classes). Its output is mapped to `labels.py`, because some checkpoints only output `LABEL_n`. If it fails, the fallback is a small CNN trained on the GTSRB train split from the Hugging Face mirror `tanganke/gtsrb` (`data/train-*.parquet`) for 3–5 epochs on CPU (~10–15 min), saved as `model.pt`, with the same `predict()` interface. A confidence below 0.5 sets `low_conf`.
+`transformers` `pipeline("image-classification", model=...)`, loaded once at startup. The first candidate is `bazyl/gtsrb-model` (ViT, 43 classes). Its output is mapped to `labels.py`, because some checkpoints only output `LABEL_n`. This checkpoint has a 44th, unused "None" output, so `predict()` takes the softmax over the 43 GTSRB logits only. Measured on the 20 samples: 19/20 correct (it confuses dangerous curve left and right). If it fails, the fallback is a small CNN trained on the GTSRB train split from the Hugging Face mirror `tanganke/gtsrb` (`data/train-*.parquet`) for 3–5 epochs on CPU (~10–15 min), saved as `model.pt`, with the same `predict()` interface. A confidence below 0.5 sets `low_conf`.
 
 ### Database: PostGIS + plain psycopg 3
 ```sql

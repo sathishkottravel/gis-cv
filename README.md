@@ -36,6 +36,41 @@ This downloads the GTSRB test set from the Hugging Face mirror [`tanganke/gtsrb`
 
 Check: http://localhost:9000/samples/14_stop.png shows a stop sign, and http://localhost:9000/samples/manifest.json lists all 20 files.
 
+## Run the API
+
+```bash
+.venv/Scripts/python -m uvicorn app.main:app --reload     # http://localhost:8000
+```
+
+The first start downloads the pretrained classifier [`bazyl/gtsrb-model`](https://huggingface.co/bazyl/gtsrb-model) (about 350 MB, cached by Hugging Face). To check it against the samples, run `.venv/Scripts/python scripts/check_classifier.py` (it expects at least 16 of 20 correct).
+
+Upload a sign:
+
+```bash
+curl -F file=@samples/14_stop.png -F lat=59.329 -F lng=18.069 http://localhost:8000/api/signs
+```
+
+This returns `201` with the sign as JSON, including `label`, `confidence` and an `imageUrl`. Errors return `{"detail", "code"}`:
+
+| Code | HTTP | Cause |
+|---|---|---|
+| `INVALID_IMAGE` | 400 | not a JPEG/PNG, or larger than 10 MB |
+| `LOCATION_REQUIRED` | 422 | no EXIF GPS and no `lat`/`lng` |
+| `INVALID_COORDINATES` | 422 | `lat`/`lng` out of range, or only one of them given |
+| `STORAGE_UNAVAILABLE` | 503 | object storage is down (nothing is saved) |
+
+Seed the map with the 20 samples on a grid around central Stockholm (the API must be running):
+
+```bash
+.venv/Scripts/python scripts/seed.py
+```
+
+## Tests
+
+```bash
+.venv/Scripts/python -m pytest      # needs docker compose services and fetched samples
+```
+
 ## Services
 
 | Service | URL | Notes |
