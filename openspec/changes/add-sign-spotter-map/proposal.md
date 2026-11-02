@@ -15,6 +15,7 @@ This is a small learning project that brings computer vision, a GIS database, RE
 - REST API: `POST /api/signs` (file upload), `GET /api/signs`, `GET /api/sign-types` and `GET /api/samples`, with interactive Swagger docs at `/docs`.
 - GraphQL API at `/graphql`, built on the same service layer: an `uploadSign` mutation and the `signs(bbox, classId)` and `signTypes` queries.
 - GitHub OAuth login. Uploads require a signed-in user (or a dev API key, used by scripts and Swagger). Viewing signs stays public.
+- The map and seed data are centred on Stockholm, Sweden. Sample images are GTSRB (German/European signs); no Swedish sign dataset is downloadable.
 - A single-page web UI: GitHub sign-in/sign-out, an upload form shown only when signed in, and a Leaflet map with pins, image-thumbnail popups and a type filter.
 
 Out of scope: user roles or permissions beyond "signed in", login providers other than GitHub, model training or fine-tuning, multiple signs per image (no object detection), editing or deleting signs, production deployment.

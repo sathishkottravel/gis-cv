@@ -10,11 +10,11 @@ Stores recognized traffic signs as geographic points with their original image, 
 The system SHALL accept a sign upload through both `POST /api/signs` (multipart form: `file`, optional `lat`, `lng`) and the GraphQL mutation `uploadSign` (base64 image, optional `lat`, `lng`). Both SHALL classify the image, store the sign as a WGS84 point and return the same fields: id, label, class identifier, confidence, low-confidence flag, latitude, longitude, location source, image URL, uploader and creation time.
 
 #### Scenario: REST upload with explicit coordinates
-- **WHEN** an authenticated client sends `POST /api/signs` with a valid image, `lat=48.137` and `lng=11.575`
+- **WHEN** an authenticated client sends `POST /api/signs` with a valid image, `lat=59.329` and `lng=18.069`
 - **THEN** the response has status 201 and contains a sign with a new id, the classification result, those coordinates and location source "manual"
 
 #### Scenario: GraphQL upload with explicit coordinates
-- **WHEN** an authenticated client calls `uploadSign` with a valid image, latitude 48.137 and longitude 11.575
+- **WHEN** an authenticated client calls `uploadSign` with a valid image, latitude 59.329 and longitude 18.069
 - **THEN** the system returns a sign with the same fields and values as the REST upload would
 
 ### Requirement: Use photo GPS metadata when present
@@ -50,7 +50,7 @@ The system SHALL store the original uploaded image in object storage and return,
 The system SHALL return signs through `GET /api/signs` and the GraphQL `signs` query. Both take an optional bounding box (min/max longitude and latitude) and return only the signs whose location falls inside it, or all signs when no box is given, newest first, capped at 500 results. Reading signs SHALL NOT require authentication.
 
 #### Scenario: Signs in the visible map area
-- **WHEN** an anonymous client requests signs with a bounding box covering central Munich, and there are 3 signs inside it and 2 outside it
+- **WHEN** an anonymous client requests signs with a bounding box covering central Stockholm, and there are 3 signs inside it and 2 outside it
 - **THEN** the response contains exactly the 3 signs inside the box
 
 ### Requirement: Filter signs by type
