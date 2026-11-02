@@ -11,5 +11,6 @@ pillow
 torch
 torchvision
 transformers
+pyarrow
 requests
 pytest

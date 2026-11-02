@@ -15,6 +15,7 @@ This is a small learning project that brings computer vision, a GIS database, RE
 - REST API: `POST /api/signs` (file upload), `GET /api/signs`, `GET /api/sign-types` and `GET /api/samples`, with interactive Swagger docs at `/docs`.
 - GraphQL API at `/graphql`, built on the same service layer: an `uploadSign` mutation and the `signs(bbox, classId)` and `signTypes` queries.
 - GitHub OAuth login. Uploads require a signed-in user (or a dev API key, used by scripts and Swagger). Viewing signs stays public.
+- The map and seed data are centred on Stockholm, Sweden. Sample images are GTSRB (German/European signs); no Swedish sign dataset is downloadable.
 - A single-page web UI: GitHub sign-in/sign-out, an upload form shown only when signed in, and a Leaflet map with pins, image-thumbnail popups and a type filter.
 
 Out of scope: user roles or permissions beyond "signed in", login providers other than GitHub, model training or fine-tuning, multiple signs per image (no object detection), editing or deleting signs, production deployment.
@@ -33,6 +34,6 @@ Out of scope: user roles or permissions beyond "signed in", login providers othe
 ## Impact
 
 - New code: a Python backend (FastAPI with REST routes, Strawberry GraphQL and OAuth routes over a shared service layer), a static HTML/JS frontend, sample fetch and seed scripts, and `docker-compose.yml`.
-- New dependencies: PostgreSQL + PostGIS, RustFS + `bitnamilegacy/minio-client` for bucket setup (Docker images), `minio` (generic S3 Python client), `torch`/`torchvision`/`transformers`, `Pillow`, `psycopg` (v3, plain SQL), `python-multipart` (REST uploads), `Authlib` + `itsdangerous` (GitHub OAuth and session cookie), Leaflet (CDN).
+- New dependencies: PostgreSQL + PostGIS, RustFS + `bitnamilegacy/minio-client` for bucket setup (Docker images), `minio` (generic S3 Python client), `torch`/`torchvision`/`transformers`, `huggingface_hub` + `pyarrow` (GTSRB mirror `tanganke/gtsrb`), `Pillow`, `psycopg` (v3, plain SQL), `python-multipart` (REST uploads), `Authlib` + `itsdangerous` (GitHub OAuth and session cookie), Leaflet (CDN).
 - External setup: the developer creates a GitHub OAuth App (callback `http://localhost:8000/auth/callback`) and puts its client ID and secret in `.env`.
-- The model weights (Hugging Face) and the GTSRB test set (~90 MB) are downloaded on first use, which needs network access once.
+- The model weights (Hugging Face) and the GTSRB test set (~110 MB, Hugging Face mirror) are downloaded on first use, which needs network access once.

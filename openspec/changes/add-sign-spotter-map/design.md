@@ -69,7 +69,7 @@ vision/
 Uploads are built in group 3 but auth arrives in group 6. To avoid rework, `rest.py` and `schema.py` call a `get_uploader` dependency from the start. Until group 6 it is a stub that returns `"api-key"`. Group 6 replaces the stub with `require_uploader` and adds the 401 tests. The seed script sends `X-API-Key` from day one, so it keeps working after the guard lands.
 
 ### Classifier: pretrained GTSRB model from Hugging Face
-`transformers` `pipeline("image-classification", model=...)`, loaded once at startup. The first candidate is `bazyl/gtsrb-model` (ViT, 43 classes). Its output is mapped to `labels.py`, because some checkpoints only output `LABEL_n`. If it fails, the fallback is a small CNN trained on `torchvision.datasets.GTSRB` for 3–5 epochs on CPU (~10–15 min), saved as `model.pt`, with the same `predict()` interface. A confidence below 0.5 sets `low_conf`.
+`transformers` `pipeline("image-classification", model=...)`, loaded once at startup. The first candidate is `bazyl/gtsrb-model` (ViT, 43 classes). Its output is mapped to `labels.py`, because some checkpoints only output `LABEL_n`. If it fails, the fallback is a small CNN trained on the GTSRB train split from the Hugging Face mirror `tanganke/gtsrb` (`data/train-*.parquet`) for 3–5 epochs on CPU (~10–15 min), saved as `model.pt`, with the same `predict()` interface. A confidence below 0.5 sets `low_conf`.
 
 ### Database: PostGIS + plain psycopg 3
 ```sql
@@ -99,18 +99,18 @@ CREATE INDEX signs_geom_idx ON signs USING GIST (geom);
 - Alternatives: a local folder served by FastAPI, or Postgres `bytea`. Both were rejected earlier in favour of a real storage service.
 
 ### Sample images: GTSRB test set → RustFS
-- `scripts/fetch_samples.py`: `torchvision.datasets.GTSRB(root="data", split="test", download=True)` (~90 MB, no key). It keeps the first image of each class until it has 20+ classes (always including Stop (14), Yield (13), Speed limit 50 (2) and No entry (17)), upscales each to at least 128 px and converts from PPM to PNG (the upload validation accepts only JPEG/PNG). Each image goes to `samples/<classId>_<slug>.png` in RustFS, and a `manifest.json` object holds `[{file, classId, label}]`. It also writes a local `samples/` copy so the user can pick files in the UI's file picker. The script is idempotent: it overwrites existing objects.
-- `scripts/seed.py`: reads `manifest.json` from RustFS, downloads each object and sends `POST /api/signs` (multipart, `X-API-Key`) at grid coordinates around Munich centre (48.137, 11.575, about 150 m apart), then prints how many predictions matched the expected class. That doubles as an accuracy check.
+- `scripts/fetch_samples.py`: downloads the GTSRB test split from the Hugging Face mirror `tanganke/gtsrb` (`data/test-00000-of-00001.parquet`, ~110 MB, no key, standard class ids 0–42) with `huggingface_hub` into `data/gtsrb/`, and reads it with `pyarrow`. The original source used by `torchvision.datasets.GTSRB` (`sid.erda.dk`) timed out from the dev network, so the user picked this mirror. It keeps the first image of each class until it has 20+ classes (always including Stop (14), Yield (13), Speed limit 50 (2) and No entry (17)), upscales each to at least 128 px and saves it as PNG (the upload validation accepts only JPEG/PNG). Each image goes to `samples/<classId>_<slug>.png` in RustFS, and a `manifest.json` object holds `[{file, classId, label}]`. It also writes a local `samples/` copy so the user can pick files in the UI's file picker. The script is idempotent: it overwrites existing objects.
+- `scripts/seed.py`: reads `manifest.json` from RustFS, downloads each object and sends `POST /api/signs` (multipart, `X-API-Key`) at grid coordinates around Stockholm centre (59.329, 18.069, about 150 m apart), then prints how many predictions matched the expected class. That doubles as an accuracy check.
 
 ### EXIF GPS
 Pillow: `img.getexif().get_ifd(0x8825)`. Degree/minute/second rationals are converted to decimal degrees, negated for `S`/`W`. Any parse failure is treated as "no GPS".
 
 ### UI: one static HTML file
-Leaflet 1.9.4 from a CDN with OSM tiles, centered on Munich. On load it calls `fetch('/auth/me')` to render the login bar ("Sign in with GitHub" link to `/auth/login`, or avatar + login + "Sign out" link to `/auth/logout`) and shows a message if `?auth_error=1` is in the URL. The upload form is shown only when signed in. The frontend uses GraphQL for its data (`signs` on `moveend`, `signTypes` for the filter, `uploadSign` for uploads), and the same-origin session cookie is sent automatically. REST is for scripts and Swagger. Popups show `<img src=imageUrl width=96>`, the label, confidence, uploader and time.
+Leaflet 1.9.4 from a CDN with OSM tiles, centered on Stockholm. On load it calls `fetch('/auth/me')` to render the login bar ("Sign in with GitHub" link to `/auth/login`, or avatar + login + "Sign out" link to `/auth/logout`) and shows a message if `?auth_error=1` is in the URL. The upload form is shown only when signed in. The frontend uses GraphQL for its data (`signs` on `moveend`, `signTypes` for the filter, `uploadSign` for uploads), and the same-origin session cookie is sent automatically. REST is for scripts and Swagger. Popups show `<img src=imageUrl width=96>`, the label, confidence, uploader and time.
 
 ## Risks / Trade-offs
 
-- [The pretrained checkpoint is missing, broken or mislabeled] → It is checked first in group 3, with the torchvision CNN as a fallback behind the same interface.
+- [The pretrained checkpoint is missing, broken or mislabeled] → It is checked first in group 3, with a small CNN trained on the mirror's train split as a fallback behind the same interface.
 - [Real-world photos aren't tightly cropped like GTSRB] → Show confidence and the low-confidence flag. The README advises cropping to the sign.
 - [GitHub OAuth App misconfigured (wrong callback URL), so login fails] → The README gives the exact App settings. The callback redirects to `/?auth_error=1`, and the UI shows a message instead of failing silently.
 - [OAuth secrets leak into git] → `.env` is git-ignored, with only `.env.example` committed.
@@ -118,7 +118,8 @@ Leaflet 1.9.4 from a CDN with OSM tiles, centered on Munich. On load it calls `f
 - [A dev API key is a shared secret that bypasses GitHub login] → It is opt-in through `API_KEY` and disabled if unset. Uploads with it are recorded as `uploaded_by = 'api-key'`.
 - [The buckets are missing or not public, so thumbnails and samples break] → `storage-init` runs on every `compose up` (`mb -p` is idempotent). The README includes a `curl -I` check.
 - [Anyone on the LAN can read images from the anonymous-read buckets] → Acceptable for a local demo. Writes go only through credentials.
-- [The GTSRB download fails] → It's a one-time ~90 MB download cached under `data/`. Any PNG/JPEG sign photos plus a hand-written manifest uploaded to the bucket work with `seed.py` unchanged.
+- [The GTSRB download fails] → It's a one-time ~110 MB download from Hugging Face, cached under `data/gtsrb/`. Any PNG/JPEG sign photos plus a hand-written manifest uploaded to the bucket work with `seed.py` unchanged.
+- [GTSRB is German; Swedish warning and some prohibitory signs have a yellow background, so real Swedish photos may score lower confidence] → Surfaced by the low-confidence flag. Swedish-specific training is out of scope (no downloadable Swedish dataset: the Linköping STSD links are dead).
 - [Mixing up lat/lng order] → One helper, and a test asserts the coordinates round-trip.
 - [A ~4 h budget is at risk if the model fallback is needed (+15 min)] → The fallback has a fixed timebox. If time runs short, the GraphQL upload mutation can be dropped (the UI would then use REST), since uploads already work over REST.
 
