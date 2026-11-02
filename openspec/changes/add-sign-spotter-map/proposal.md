@@ -33,6 +33,6 @@ Out of scope: user roles or permissions beyond "signed in", login providers othe
 ## Impact
 
 - New code: a Python backend (FastAPI with REST routes, Strawberry GraphQL and OAuth routes over a shared service layer), a static HTML/JS frontend, sample fetch and seed scripts, and `docker-compose.yml`.
-- New dependencies: PostgreSQL + PostGIS, RustFS + `bitnamilegacy/minio-client` for bucket setup (Docker images), `minio` (generic S3 Python client), `torch`/`torchvision`/`transformers`, `Pillow`, `psycopg` (v3, plain SQL), `python-multipart` (REST uploads), `Authlib` + `itsdangerous` (GitHub OAuth and session cookie), Leaflet (CDN).
+- New dependencies: PostgreSQL + PostGIS, RustFS + `bitnamilegacy/minio-client` for bucket setup (Docker images), `minio` (generic S3 Python client), `torch`/`torchvision`/`transformers`, `huggingface_hub` + `pyarrow` (GTSRB mirror `tanganke/gtsrb`), `Pillow`, `psycopg` (v3, plain SQL), `python-multipart` (REST uploads), `Authlib` + `itsdangerous` (GitHub OAuth and session cookie), Leaflet (CDN).
 - External setup: the developer creates a GitHub OAuth App (callback `http://localhost:8000/auth/callback`) and puts its client ID and secret in `.env`.
-- The model weights (Hugging Face) and the GTSRB test set (~90 MB) are downloaded on first use, which needs network access once.
+- The model weights (Hugging Face) and the GTSRB test set (~110 MB, Hugging Face mirror) are downloaded on first use, which needs network access once.

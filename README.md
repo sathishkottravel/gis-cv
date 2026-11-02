@@ -26,6 +26,16 @@ uv pip install -r requirements.txt
 
 The first `uv pip install` downloads PyTorch (several hundred MB).
 
+## Sample images
+
+```bash
+.venv/Scripts/python scripts/fetch_samples.py      # Windows; use .venv/bin/python on macOS/Linux
+```
+
+This downloads the GTSRB test set from the Hugging Face mirror [`tanganke/gtsrb`](https://huggingface.co/datasets/tanganke/gtsrb). It's a one-time download of about 110 MB, cached in `data/gtsrb/`. The script picks 20 signs (one per class, including Stop, Yield, No entry and Speed limit 50) and uploads them as PNGs plus a `manifest.json` to the `samples` bucket. It also writes a local copy to `samples/` that you can pick in the upload form. Rerunning it is safe: existing files are overwritten.
+
+Check: http://localhost:9000/samples/14_stop.png shows a stop sign, and http://localhost:9000/samples/manifest.json lists all 20 files.
+
 ## Services
 
 | Service | URL | Notes |
