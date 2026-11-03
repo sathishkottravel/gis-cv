@@ -65,6 +65,29 @@ Seed the map with the 20 samples on a grid around central Stockholm (the API mus
 .venv/Scripts/python scripts/seed.py
 ```
 
+### Read endpoints (public)
+
+| Endpoint | Returns |
+|---|---|
+| `GET /api/signs` | signs, newest first, max 500. Optional `min_lng`, `min_lat`, `max_lng`, `max_lat` (all four or none, otherwise `422`) and `class_id` |
+| `GET /api/sign-types` | the 43 GTSRB classes as `{classId, label}` |
+| `GET /api/samples` | the registered samples as `{file, classId, label, url}` |
+
+```bash
+curl "http://localhost:8000/api/signs?min_lng=18.06&min_lat=59.32&max_lng=18.08&max_lat=59.34&class_id=14"
+```
+
+## Swagger (interactive REST docs)
+
+Open http://localhost:8000/docs while the API is running. All four endpoints are listed under the `signs` and `samples` tags; the raw spec is at http://localhost:8000/openapi.json.
+
+To upload from Swagger:
+
+1. Click **Authorize**, enter the `API_KEY` value from your `.env` under `APIKeyHeader (apiKey)`, then click **Authorize** and **Close**. (Uploads only check the key once GitHub login lands in task group 6; reads never need it.)
+2. Open `POST /api/signs` and click **Try it out**.
+3. Choose `samples/14_stop.png` as `file`, set `lat` = `59.329` and `lng` = `18.069`, and click **Execute**.
+4. The response is `201` with the sign JSON (`"label": "Stop"`). Swagger also shows the equivalent `curl` command, including the `X-API-Key` header.
+
 ## Tests
 
 ```bash

@@ -22,7 +22,21 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="Sign Spotter Map", lifespan=lifespan)
+DESCRIPTION = """
+Upload traffic sign photos, have them classified by a pretrained GTSRB model, and query them by map area.
+
+* **Uploads** need the dev API key: click **Authorize** and enter `API_KEY` from `.env`.
+* **Reads** (`GET`) are public.
+* Errors return `{"detail", "code"}`.
+"""
+
+TAGS = [
+    {"name": "signs", "description": "Upload, list and filter located traffic signs."},
+    {"name": "samples", "description": "GTSRB sample images registered in object storage."},
+]
+
+app = FastAPI(title="Sign Spotter Map", version="0.1.0", description=DESCRIPTION,
+              openapi_tags=TAGS, lifespan=lifespan)
 
 
 @app.exception_handler(DomainError)
