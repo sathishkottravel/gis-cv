@@ -6,6 +6,7 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from app import classifier, config, rest
+from app.schema import graphql_router
 from app.errors import DomainError, InvalidCoordinates, InvalidImage, LocationRequired, StorageUnavailable
 
 STATUS_BY_ERROR = {
@@ -27,7 +28,7 @@ Upload traffic sign photos, have them classified by a pretrained GTSRB model, an
 
 * **Uploads** need the dev API key: click **Authorize** and enter `API_KEY` from `.env`.
 * **Reads** (`GET`) are public.
-* Errors return `{"detail", "code"}`.
+* Errors return `{"detail", "code"}`. GraphQL (with GraphiQL) is at `/graphql`.
 """
 
 TAGS = [
@@ -46,4 +47,5 @@ async def domain_error_handler(request: Request, exc: DomainError):
 
 
 app.include_router(rest.router)
+app.include_router(graphql_router)
 app.mount("/", StaticFiles(directory=config.ROOT / "static", html=True), name="static")
