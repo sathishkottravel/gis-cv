@@ -154,7 +154,7 @@ Browsing the map is public; uploading from the web page needs a GitHub sign-in. 
    Generate random strings with `python -c "import secrets; print(secrets.token_urlsafe(32))"`.
 5. Restart the API, open **http://localhost:8000** (use `localhost`, not `127.0.0.1`: the callback URL and session cookie are tied to that host) and click **Sign in with GitHub**.
 
-The app asks only for the `read:user` scope (your public login and avatar). If sign-in fails or is cancelled, the page shows "GitHub sign-in failed" — check that the callback URL matches exactly.
+The app asks only for the `read:user` scope (your public login and avatar). If sign-in fails or is cancelled, the page shows "GitHub sign-in failed". If GitHub itself says *"The redirect_uri is not associated with this application"*, the page was opened under a different host than the callback URL (for example `127.0.0.1` instead of `localhost`), or the callback URL in the OAuth App differs (`https`, port, trailing slash). Compare the `redirect_uri=` value in GitHub's address bar with the App setting.
 
 ## The web app
 
