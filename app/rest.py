@@ -7,11 +7,11 @@ from pydantic import BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
 
 from app import service
-from app.auth import get_uploader
+from app.auth import require_uploader
 
 router = APIRouter(prefix="/api")
 
-# Declared so Swagger shows an "Authorize" button; checked by the uploader dependency.
+# Declared so Swagger shows an "Authorize" button; checked by require_uploader.
 api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False,
                               description="Dev API key (`API_KEY` in `.env`) for scripts and Swagger.")
 
@@ -57,6 +57,7 @@ class Sample(_Camel):
     description="Classifies the photo, takes the location from EXIF GPS or `lat`/`lng`, "
                 "stores the image and records the sign.",
     responses={400: {"model": Error, "description": "Not a JPEG/PNG, or larger than 10 MB"},
+               401: {"model": Error, "description": "No GitHub session and no valid X-API-Key"},
                422: {"model": Error, "description": "Location required, or invalid coordinates"},
                503: {"model": Error, "description": "Object storage unavailable"}},
 )
@@ -65,7 +66,7 @@ async def upload_sign(
     lat: float | None = Form(None, description="Latitude; ignored if the photo has EXIF GPS"),
     lng: float | None = Form(None, description="Longitude; ignored if the photo has EXIF GPS"),
     _api_key: str | None = Security(api_key_header),
-    uploader: str = Depends(get_uploader),
+    uploader: str = Depends(require_uploader),
 ):
     return Sign.model_validate(service.create_sign(await file.read(), lat, lng, uploader))
 

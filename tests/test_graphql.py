@@ -26,7 +26,7 @@ OUTSIDE = [(59.335, 18.105), (59.325, 18.115)]
 
 @pytest.fixture(scope="module")
 def client():
-    with TestClient(app) as c:
+    with TestClient(app, headers={"X-API-Key": config.API_KEY}) as c:
         yield c
 
 

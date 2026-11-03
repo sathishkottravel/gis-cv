@@ -11,7 +11,7 @@ STOP_PNG = (config.ROOT / "samples" / "14_stop.png").read_bytes()
 
 @pytest.fixture(scope="module")
 def client():
-    with TestClient(app) as c:  # runs the lifespan, which loads the model
+    with TestClient(app, headers={"X-API-Key": config.API_KEY}) as c:  # runs the lifespan, which loads the model
         yield c
 
 

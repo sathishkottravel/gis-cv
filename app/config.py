@@ -23,10 +23,15 @@ _load_dotenv(ROOT / ".env")
 
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5433/signs")
 
-STORAGE_ENDPOINT =os.getenv("STORAGE_ENDPOINT", "localhost:9000")
+STORAGE_ENDPOINT = os.getenv("STORAGE_ENDPOINT", "localhost:9000")
 STORAGE_ACCESS_KEY = os.getenv("STORAGE_ACCESS_KEY", "rustfsadmin")
 STORAGE_SECRET_KEY = os.getenv("STORAGE_SECRET_KEY", "change-me-storage")
 STORAGE_PUBLIC_URL = os.getenv("STORAGE_PUBLIC_URL", "http://localhost:9000").rstrip("/")
 
 SAMPLES_BUCKET = "samples"
 SIGNS_BUCKET = "signs"
+
+GITHUB_CLIENT_ID = os.getenv("GITHUB_CLIENT_ID", "")
+GITHUB_CLIENT_SECRET = os.getenv("GITHUB_CLIENT_SECRET", "")
+SESSION_SECRET = os.getenv("SESSION_SECRET", "change-me-session-secret")
+API_KEY = os.getenv("API_KEY", "")  # empty disables API key auth
