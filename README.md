@@ -88,6 +88,49 @@ To upload from Swagger:
 3. Choose `samples/14_stop.png` as `file`, set `lat` = `59.329` and `lng` = `18.069`, and click **Execute**.
 4. The response is `201` with the sign JSON (`"label": "Stop"`). Swagger also shows the equivalent `curl` command, including the `X-API-Key` header.
 
+## GraphQL
+
+Open http://localhost:8000/graphql for GraphiQL (schema docs and autocomplete). REST and GraphQL share one service layer and return the same fields.
+
+All 43 sign types:
+
+```graphql
+{ signTypes { classId label } }
+```
+
+Stop signs in central Stockholm (`bbox` and `classId` are both optional):
+
+```graphql
+{
+  signs(bbox: {minLng: 18.06, minLat: 59.32, maxLng: 18.08, maxLat: 59.34}, classId: 14) {
+    id label confidence lowConfidence lat lng locationSource imageUrl uploadedBy createdAt
+  }
+}
+```
+
+Upload a sign. The image is base64 (a `data:image/png;base64,...` prefix is also accepted, max 10 MB decoded); `lat`/`lng` are used only when the photo has no EXIF GPS. Paste into GraphiQL with these variables, where `imageBase64` is the output of `base64 -w0 samples/14_stop.png`:
+
+```graphql
+mutation Upload($imageBase64: String!, $lat: Float, $lng: Float) {
+  uploadSign(imageBase64: $imageBase64, lat: $lat, lng: $lng) {
+    id label confidence imageUrl uploadedBy
+  }
+}
+```
+
+```json
+{ "imageBase64": "<base64 of the PNG>", "lat": 59.329, "lng": 18.069 }
+```
+
+The same upload from the shell:
+
+```bash
+printf '{"query":"mutation($i:String!){uploadSign(imageBase64:$i,lat:59.329,lng:18.069){id label confidence}}","variables":{"i":"%s"}}' \
+  "$(base64 -w0 samples/14_stop.png)" | curl -s -H "Content-Type: application/json" -d @- http://localhost:8000/graphql
+```
+
+Errors come back in `errors[].extensions.code`, with the same codes as the REST table above (`INVALID_IMAGE`, `LOCATION_REQUIRED`, `INVALID_COORDINATES`, `STORAGE_UNAVAILABLE`).
+
 ## Tests
 
 ```bash

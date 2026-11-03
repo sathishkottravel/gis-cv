@@ -35,9 +35,9 @@ Implementation order (set by the user): Docker services, sample images in RustFS
 
 ## 5. GraphQL [30 min]
 
-- [ ] 5.1 Implement `app/schema.py`: the `Sign` (including `imageUrl` and `uploadedBy`), `SignType` and `BBoxInput` types, `Query.signs`, `Query.signTypes`, and `Mutation.uploadSign(imageBase64, lat, lng)`, all calling `service.py`. Map domain errors to `extensions.code` and pass the request through the context so the mutation uses the same `get_uploader` dependency. Mount the `GraphQLRouter` at `/graphql`. Verify in GraphiQL that `signTypes` returns 43 entries, that `signs(bbox)` matches the REST results for the same box, and that `uploadSign` without coordinates returns `LOCATION_REQUIRED`.
-- [ ] 5.2 Add `tests/test_graphql.py`: an upload with coordinates returns the same fields as REST, the bbox and type filters work, and the error codes are correct. Verify that `pytest` passes.
-- [ ] 5.3 Add example GraphQL queries and the mutation to the README. Verify they run as written in GraphiQL.
+- [x] 5.1 Implement `app/schema.py`: the `Sign` (including `imageUrl` and `uploadedBy`), `SignType` and `BBoxInput` types, `Query.signs`, `Query.signTypes`, and `Mutation.uploadSign(imageBase64, lat, lng)`, all calling `service.py`. Map domain errors to `extensions.code` and pass the request through the context so the mutation uses the same `get_uploader` dependency. Mount the `GraphQLRouter` at `/graphql`. Verify in GraphiQL that `signTypes` returns 43 entries, that `signs(bbox)` matches the REST results for the same box, and that `uploadSign` without coordinates returns `LOCATION_REQUIRED`.
+- [x] 5.2 Add `tests/test_graphql.py`: an upload with coordinates returns the same fields as REST, the bbox and type filters work, and the error codes are correct. Verify that `pytest` passes.
+- [x] 5.3 Add example GraphQL queries and the mutation to the README. Verify they run as written in GraphiQL.
 
 ## 6. Frontend with GitHub login [55 min]
 
