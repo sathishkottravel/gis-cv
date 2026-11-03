@@ -9,7 +9,7 @@ from strawberry.fastapi import GraphQLRouter
 from strawberry.types import Info
 
 from app import service
-from app.auth import get_uploader
+from app.auth import require_uploader
 from app.errors import DomainError, InvalidImage
 
 
@@ -77,7 +77,7 @@ class Mutation:
                                      "lat/lng are used only when the photo has no EXIF GPS.")
     def upload_sign(self, info: Info, image_base64: str,
                     lat: float | None = None, lng: float | None = None) -> Sign:
-        uploader = get_uploader(info.context["request"])
+        uploader = _call(require_uploader, info.context["request"])
         try:
             data = base64.b64decode(image_base64.split(",", 1)[-1], validate=True)
         except (binascii.Error, ValueError):

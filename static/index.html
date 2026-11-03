@@ -1,1 +1,254 @@
-<!doctype html><title>Sign Spotter Map</title><p>UI coming in task group 6.</p>
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sign Spotter Map</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+<style>
+  :root { --bar: #1f2937; --accent: #2563eb; --err-bg: #fef2f2; --err: #b91c1c; --ok-bg: #f0fdf4; --ok: #166534; --warn: #b45309; }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; font: 14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; color: #111827; background: #f9fafb; }
+  body { display: flex; flex-direction: column; }
+  header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 8px 16px; background: var(--bar); color: #fff; }
+  header h1 { font-size: 16px; margin: 0; margin-right: auto; }
+  header select { padding: 4px 6px; border-radius: 4px; border: 0; }
+  header a { color: #fff; }
+  #auth { display: flex; align-items: center; gap: 8px; }
+  #auth img { width: 28px; height: 28px; border-radius: 50%; }
+  .btn { display: inline-block; padding: 6px 12px; border-radius: 4px; border: 0; background: var(--accent); color: #fff; text-decoration: none; cursor: pointer; font: inherit; }
+  .btn:disabled { opacity: .5; cursor: default; }
+  .btn.ghost { background: transparent; border: 1px solid #9ca3af; }
+  main { flex: 1; display: flex; min-height: 0; }
+  #map { flex: 1; }
+  aside { width: 300px; padding: 16px; overflow-y: auto; border-left: 1px solid #e5e7eb; background: #fff; }
+  aside h2 { font-size: 15px; margin: 0 0 8px; }
+  aside p { margin: 8px 0; }
+  .hint { color: #6b7280; }
+  .msg { padding: 8px 10px; border-radius: 4px; margin: 8px 0; }
+  .msg.error { background: var(--err-bg); color: var(--err); }
+  .msg.ok { background: var(--ok-bg); color: var(--ok); }
+  .warn { color: var(--warn); }
+  #banner { margin: 0; border-radius: 0; }
+  .popup img { display: block; width: 96px; height: auto; margin-bottom: 4px; image-rendering: pixelated; }
+  .popup b { font-size: 14px; }
+  [hidden] { display: none !important; }
+  @media (max-width: 700px) {
+    main { flex-direction: column; }
+    aside { width: auto; border-left: 0; border-top: 1px solid #e5e7eb; max-height: 45%; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Sign Spotter Map</h1>
+  <label>Type <select id="filter"><option value="">All</option></select></label>
+  <div id="auth"></div>
+</header>
+<div id="banner" class="msg error" role="alert" hidden></div>
+<main>
+  <div id="map"></div>
+  <aside>
+    <section id="signed-out" hidden>
+      <h2>Add a sign</h2>
+      <p class="hint">Sign in with GitHub to upload sign photos. Browsing the map works without signing in.</p>
+    </section>
+    <form id="upload" hidden>
+      <h2>Upload a sign photo</h2>
+      <p><input type="file" id="file" accept="image/jpeg,image/png" required></p>
+      <p id="location" class="hint">Location: from the photo's GPS, or click the map to choose one.</p>
+      <p><button class="btn" id="submit" type="submit">Upload</button></p>
+      <div id="result" aria-live="polite"></div>
+    </form>
+  </aside>
+</main>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script>
+const STOCKHOLM = [59.329, 18.069];
+const SIGN_FIELDS = "id classId label confidence lowConfidence lat lng locationSource imageUrl uploadedBy createdAt";
+
+const $ = (id) => document.getElementById(id);
+const map = L.map("map").setView(STOCKHOLM, 15);
+L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+  maxZoom: 19,
+  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+}).addTo(map);
+const markers = L.layerGroup().addTo(map);
+
+let signedIn = false;
+let pending = null;        // {lat, lng, marker} chosen by a map click
+let loadSeq = 0;           // ignore out-of-order responses
+let openAfterLoad = null;  // sign id whose popup to open after the next load
+
+class GqlError extends Error {
+  constructor(message, code) { super(message); this.code = code; }
+}
+
+async function gql(query, variables = {}) {
+  let resp;
+  try {
+    resp = await fetch("/graphql", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query, variables }),
+    });
+  } catch {
+    throw new GqlError("Cannot reach the server.", "NETWORK");
+  }
+  const body = await resp.json().catch(() => null);
+  if (!body) throw new GqlError(`Server error (HTTP ${resp.status}).`, "HTTP");
+  if (body.errors?.length) {
+    const e = body.errors[0];
+    throw new GqlError(e.message, e.extensions?.code || "ERROR");
+  }
+  return body.data;
+}
+
+function el(tag, props = {}, ...children) {
+  const node = Object.assign(document.createElement(tag), props);
+  node.append(...children);
+  return node;
+}
+
+function popupFor(s) {
+  const pct = Math.round(s.confidence * 100);
+  return el("div", { className: "popup" },
+    el("img", { src: s.imageUrl, alt: s.label }),
+    el("b", {}, s.label), " ", `${pct}%`,
+    s.lowConfidence ? el("div", { className: "warn" }, "⚠ Low confidence: the recognition may be wrong") : "",
+    el("div", {}, `By ${s.uploadedBy}`),
+    el("div", { className: "hint" }, new Date(s.createdAt).toLocaleString()),
+  );
+}
+
+async function loadSigns() {
+  const seq = ++loadSeq;
+  const b = map.getBounds();
+  const bbox = { minLng: b.getWest(), minLat: b.getSouth(), maxLng: b.getEast(), maxLat: b.getNorth() };
+  const classId = $("filter").value === "" ? null : Number($("filter").value);
+  try {
+    const { signs } = await gql(
+      `query ($bbox: BBoxInput, $classId: Int) { signs(bbox: $bbox, classId: $classId) { ${SIGN_FIELDS} } }`,
+      { bbox, classId });
+    if (seq !== loadSeq) return;
+    markers.clearLayers();
+    for (const s of signs) {
+      const m = L.marker([s.lat, s.lng], { title: s.label }).bindPopup(popupFor(s)).addTo(markers);
+      if (s.id === openAfterLoad) { m.openPopup(); openAfterLoad = null; }
+    }
+    hideBanner("load");
+  } catch (e) {
+    if (seq === loadSeq) showBanner(`Could not load signs: ${e.message}`, "load");
+  }
+}
+
+async function loadSignTypes() {
+  try {
+    const { signTypes } = await gql("{ signTypes { classId label } }");
+    for (const t of signTypes) $("filter").append(el("option", { value: t.classId }, t.label));
+  } catch (e) {
+    showBanner(`Could not load sign types: ${e.message}`);
+  }
+}
+
+function showBanner(text, kind = "info") {
+  $("banner").textContent = text;
+  $("banner").dataset.kind = kind;
+  $("banner").hidden = false;
+}
+function hideBanner(kind) { if ($("banner").dataset.kind === kind) $("banner").hidden = true; }
+
+async function loadAuth() {
+  let user = null;
+  try { user = (await (await fetch("/auth/me")).json()).user; } catch { /* treat as signed out */ }
+  signedIn = !!user;
+  const auth = $("auth");
+  auth.replaceChildren();
+  if (user) {
+    if (user.avatar_url) auth.append(el("img", { src: user.avatar_url, alt: "" }));
+    auth.append(el("span", {}, user.login), el("a", { className: "btn ghost", href: "/auth/logout" }, "Sign out"));
+  } else {
+    auth.append(el("a", { className: "btn", href: "/auth/login" }, "Sign in with GitHub"));
+  }
+  $("upload").hidden = !signedIn;
+  $("signed-out").hidden = signedIn;
+  if (!signedIn) clearPending();
+}
+
+function setPending(latlng) {
+  clearPending();
+  pending = { lat: latlng.lat, lng: latlng.lng,
+              marker: L.circleMarker(latlng, { radius: 8, color: "#dc2626" }).addTo(map) };
+  $("location").textContent = `Location: ${pending.lat.toFixed(5)}, ${pending.lng.toFixed(5)} (used if the photo has no GPS)`;
+  $("location").className = "";
+}
+
+function clearPending() {
+  if (pending) map.removeLayer(pending.marker);
+  pending = null;
+  $("location").textContent = "Location: from the photo's GPS, or click the map to choose one.";
+  $("location").className = "hint";
+}
+
+function showResult(kind, ...content) {
+  $("result").replaceChildren(el("div", { className: `msg ${kind}` }, ...content));
+}
+
+const readAsDataURL = (file) => new Promise((resolve, reject) => {
+  const r = new FileReader();
+  r.onload = () => resolve(r.result);
+  r.onerror = () => reject(new Error("Could not read the file."));
+  r.readAsDataURL(file);
+});
+
+$("upload").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const file = $("file").files[0];
+  if (!file) return showResult("error", "Choose a photo first.");
+  $("submit").disabled = true;
+  showResult("ok", "Uploading and recognizing…");
+  try {
+    const dataUrl = await readAsDataURL(file);
+    const { uploadSign: s } = await gql(
+      `mutation ($img: String!, $lat: Float, $lng: Float) { uploadSign(imageBase64: $img, lat: $lat, lng: $lng) { ${SIGN_FIELDS} } }`,
+      { img: dataUrl, lat: pending?.lat ?? null, lng: pending?.lng ?? null });
+    showResult("ok", el("b", {}, s.label), ` ${Math.round(s.confidence * 100)}%`,
+      s.lowConfidence ? el("div", { className: "warn" }, "⚠ Low confidence: the recognition may be wrong") : "",
+      el("div", { className: "hint" }, s.locationSource === "exif" ? "Location from the photo's GPS." : "Location from your map click."));
+    clearPending();
+    $("upload").reset();
+    if ($("filter").value !== "" && Number($("filter").value) !== s.classId) $("filter").value = "";
+    openAfterLoad = s.id;
+    map.setView([s.lat, s.lng], Math.max(map.getZoom(), 16));
+    loadSigns();
+  } catch (e) {
+    const messages = {
+      LOCATION_REQUIRED: "This photo has no GPS location. Click the map to choose where the sign is, then upload again.",
+      AUTH_REQUIRED: "Your session has expired. Sign in again to upload.",
+    };
+    showResult("error", messages[e.code] || e.message);
+    if (e.code === "AUTH_REQUIRED") loadAuth();
+  } finally {
+    $("submit").disabled = false;
+  }
+});
+
+map.on("click", (ev) => { if (signedIn) setPending(ev.latlng); });
+map.on("moveend", loadSigns);
+$("filter").addEventListener("change", loadSigns);
+
+const params = new URLSearchParams(location.search);
+if (params.has("auth_error")) {
+  showBanner("GitHub sign-in failed or was cancelled. Please try again.", "auth");
+  history.replaceState(null, "", location.pathname);
+}
+
+loadAuth();
+loadSignTypes();
+loadSigns();
+</script>
+</body>
+</html>

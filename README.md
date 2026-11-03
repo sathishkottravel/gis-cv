@@ -47,14 +47,15 @@ The first start downloads the pretrained classifier [`bazyl/gtsrb-model`](https:
 Upload a sign:
 
 ```bash
-curl -F file=@samples/14_stop.png -F lat=59.329 -F lng=18.069 http://localhost:8000/api/signs
+curl -H "X-API-Key: <API_KEY from .env>" -F file=@samples/14_stop.png -F lat=59.329 -F lng=18.069 http://localhost:8000/api/signs
 ```
 
-This returns `201` with the sign as JSON, including `label`, `confidence` and an `imageUrl`. Errors return `{"detail", "code"}`:
+Uploads need the dev API key (or a GitHub session in the browser); reads are public. This returns `201` with the sign as JSON, including `label`, `confidence` and an `imageUrl`. Errors return `{"detail", "code"}`:
 
 | Code | HTTP | Cause |
 |---|---|---|
 | `INVALID_IMAGE` | 400 | not a JPEG/PNG, or larger than 10 MB |
+| `AUTH_REQUIRED` | 401 | no GitHub session and no valid `X-API-Key` |
 | `LOCATION_REQUIRED` | 422 | no EXIF GPS and no `lat`/`lng` |
 | `INVALID_COORDINATES` | 422 | `lat`/`lng` out of range, or only one of them given |
 | `STORAGE_UNAVAILABLE` | 503 | object storage is down (nothing is saved) |
@@ -83,7 +84,7 @@ Open http://localhost:8000/docs while the API is running. All four endpoints are
 
 To upload from Swagger:
 
-1. Click **Authorize**, enter the `API_KEY` value from your `.env` under `APIKeyHeader (apiKey)`, then click **Authorize** and **Close**. (Uploads only check the key once GitHub login lands in task group 6; reads never need it.)
+1. Click **Authorize**, enter the `API_KEY` value from your `.env` under `APIKeyHeader (apiKey)`, then click **Authorize** and **Close**. Reads never need it.
 2. Open `POST /api/signs` and click **Try it out**.
 3. Choose `samples/14_stop.png` as `file`, set `lat` = `59.329` and `lng` = `18.069`, and click **Execute**.
 4. The response is `201` with the sign JSON (`"label": "Stop"`). Swagger also shows the equivalent `curl` command, including the `X-API-Key` header.
@@ -126,10 +127,42 @@ The same upload from the shell:
 
 ```bash
 printf '{"query":"mutation($i:String!){uploadSign(imageBase64:$i,lat:59.329,lng:18.069){id label confidence}}","variables":{"i":"%s"}}' \
-  "$(base64 -w0 samples/14_stop.png)" | curl -s -H "Content-Type: application/json" -d @- http://localhost:8000/graphql
+  "$(base64 -w0 samples/14_stop.png)" | curl -s -H "Content-Type: application/json" -H "X-API-Key: <API_KEY from .env>" -d @- http://localhost:8000/graphql
 ```
 
-Errors come back in `errors[].extensions.code`, with the same codes as the REST table above (`INVALID_IMAGE`, `LOCATION_REQUIRED`, `INVALID_COORDINATES`, `STORAGE_UNAVAILABLE`).
+Errors come back in `errors[].extensions.code`, with the same codes as the REST table above (`AUTH_REQUIRED`, `INVALID_IMAGE`, `LOCATION_REQUIRED`, `INVALID_COORDINATES`, `STORAGE_UNAVAILABLE`). The mutation needs a signed-in session or an `X-API-Key` header (in GraphiQL, add it under **Headers**: `{"X-API-Key": "<API_KEY>"}`).
+
+## GitHub sign-in (OAuth App)
+
+Browsing the map is public; uploading from the web page needs a GitHub sign-in. Create a GitHub OAuth App once:
+
+1. Go to GitHub → **Settings** → **Developer settings** → **OAuth Apps** → **New OAuth App** (https://github.com/settings/applications/new).
+2. Fill in:
+   | Field | Value |
+   |---|---|
+   | Application name | `Sign Spotter Map (local)` (anything) |
+   | Homepage URL | `http://localhost:8000` |
+   | Authorization callback URL | `http://localhost:8000/auth/callback` |
+3. Click **Register application**, then **Generate a new client secret**.
+4. Put the values in `.env` (never commit it):
+   ```ini
+   GITHUB_CLIENT_ID=<Client ID>
+   GITHUB_CLIENT_SECRET=<the client secret>
+   SESSION_SECRET=<long random string>   # signs the session cookie
+   API_KEY=<another random string>       # for seed.py, curl, Swagger
+   ```
+   Generate random strings with `python -c "import secrets; print(secrets.token_urlsafe(32))"`.
+5. Restart the API, open **http://localhost:8000** (use `localhost`, not `127.0.0.1`: the callback URL and session cookie are tied to that host) and click **Sign in with GitHub**.
+
+The app asks only for the `read:user` scope (your public login and avatar). If sign-in fails or is cancelled, the page shows "GitHub sign-in failed". If GitHub itself says *"The redirect_uri is not associated with this application"*, the page was opened under a different host than the callback URL (for example `127.0.0.1` instead of `localhost`), or the callback URL in the OAuth App differs (`https`, port, trailing slash). Compare the `redirect_uri=` value in GitHub's address bar with the App setting.
+
+## The web app
+
+Open http://localhost:8000.
+
+- The map starts on central Stockholm and loads the signs in view through GraphQL whenever you pan or zoom. Click a marker for the photo, label, confidence, uploader and time.
+- **Type** filters markers to one sign type.
+- Signed in, the panel on the right uploads a JPEG/PNG. If the photo has GPS EXIF data that location is used; otherwise click the map first (a red circle marks the spot). After the upload the map centres on the new sign. Crop photos close to the sign for the best recognition.
 
 ## Tests
 

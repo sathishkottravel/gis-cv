@@ -19,3 +19,7 @@ class InvalidCoordinates(DomainError):
 
 class StorageUnavailable(DomainError):
     code = "STORAGE_UNAVAILABLE"
+
+
+class AuthRequired(DomainError):
+    code = "AUTH_REQUIRED"
