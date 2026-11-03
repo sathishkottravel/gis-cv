@@ -29,9 +29,9 @@ Implementation order (set by the user): Docker services, sample images in RustFS
 
 ## 4. Swagger and REST read endpoints [20 min]
 
-- [ ] 4.1 Add `GET /api/signs` (bbox params all or none, `class_id`), `GET /api/sign-types` and `GET /api/samples` (manifest from RustFS with URLs), all through `service.py`, with Pydantic response models. Verify with tests that a bbox around central Stockholm includes inside points and excludes outside points, that the type filter works, that sign-types has 43 entries, and that every sample URL gives 200.
-- [ ] 4.2 Add OpenAPI metadata (title, description, `signs`/`samples` tags, response models, an `APIKeyHeader` security scheme on the upload). Verify that `/docs` lists all four endpoints, that "Authorize" accepts the API key, and that "Try it out" on `POST /api/signs` with a sample file returns 201.
-- [ ] 4.3 Add a Swagger section to the README (URL, how to authorize, example upload). Verify by following it.
+- [x] 4.1 Add `GET /api/signs` (bbox params all or none, `class_id`), `GET /api/sign-types` and `GET /api/samples` (manifest from RustFS with URLs), all through `service.py`, with Pydantic response models. Verify with tests that a bbox around central Stockholm includes inside points and excludes outside points, that the type filter works, that sign-types has 43 entries, and that every sample URL gives 200.
+- [x] 4.2 Add OpenAPI metadata (title, description, `signs`/`samples` tags, response models, an `APIKeyHeader` security scheme on the upload). Verify that `/docs` lists all four endpoints, that "Authorize" accepts the API key, and that "Try it out" on `POST /api/signs` with a sample file returns 201.
+- [x] 4.3 Add a Swagger section to the README (URL, how to authorize, example upload). Verify by following it.
 
 ## 5. GraphQL [30 min]
 
